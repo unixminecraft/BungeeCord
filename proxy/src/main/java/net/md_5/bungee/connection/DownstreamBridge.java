@@ -253,6 +253,8 @@ public class DownstreamBridge extends PacketHandler
                 }
             }
         }
+        System.out.println( "Backend Server Team Packet Dropped" );
+        throw CancelSendSignal.INSTANCE;
     }
 
     @Override
