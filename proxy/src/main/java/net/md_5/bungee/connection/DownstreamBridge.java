@@ -246,7 +246,10 @@ public class DownstreamBridge extends PacketHandler
                 }
             }
         }
-        throw CancelSendSignal.INSTANCE;
+        if ( !con.getServer().getInfo().getName().equalsIgnoreCase( "cv7wargames" ) )
+        {
+            throw CancelSendSignal.INSTANCE;
+        }
     }
 
     @Override
