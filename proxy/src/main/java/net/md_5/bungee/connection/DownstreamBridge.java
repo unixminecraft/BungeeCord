@@ -246,10 +246,7 @@ public class DownstreamBridge extends PacketHandler
                 }
             }
         }
-        if ( con.getServer().getInfo().getName().equalsIgnoreCase( "cv7events" ) && team.getName().startsWith( "LD_" ) )
-        {
-            System.out.println( "Packet allowed from events server with the name: " + team.getName() );
-        } else if ( !con.getServer().getInfo().getName().equalsIgnoreCase( "cv7wargames" ) )
+        if ( !con.getServer().getInfo().getName().equalsIgnoreCase( "cv7wargames" ) || !team.getName().startsWith( "LD_" ) )
         {
             throw CancelSendSignal.INSTANCE;
         }
