@@ -264,8 +264,11 @@ public class DownstreamBridge extends PacketHandler
         }
         if ( !con.getServer().getInfo().getName().equalsIgnoreCase( "cv7wargames" ) && !team.getName().startsWith( "LD_" ) && !( team.getName().startsWith( "CIT-" ) && con.getServer().getInfo().getName().equalsIgnoreCase( "cv7nhardcore" ) ) )
         {
-            //System.out.println( "The team: " + team.getName() + " from: " + con.getServer().getInfo().getName() + " is being dropped!" );
+            System.out.println( "The team: " + team.getName() + " from: " + con.getServer().getInfo().getName() + " is being dropped!" );
             throw CancelSendSignal.INSTANCE;
+        } else
+        {
+            System.out.println( "The team: " + team.getName() + " from: " + con.getServer().getInfo().getName() + " is allowed through!" );
         }
     }
 
