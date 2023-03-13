@@ -424,10 +424,10 @@ public final class UserConnection implements ProxiedPlayer
     public void chat(String message)
     {
         Preconditions.checkState( server != null, "Not connected to server" );
-        if ( getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_19 )
+        /*if ( getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_19 )
         {
             throw new UnsupportedOperationException( "Cannot spoof chat on this client version!" );
-        }
+        }*/
         server.getCh().write( new Chat( message ) );
     }
 
