@@ -716,7 +716,15 @@ public enum Protocol
             {
                 throw new BadPacketException( "Unsupported protocol version" );
             }
-            Preconditions.checkArgument( protocolData.packetMap.containsKey( packet ), "Cannot get ID for packet %s in phase %s with direction %s", packet, protocolPhase, direction );
+            try
+            {
+                Preconditions.checkArgument( protocolData.packetMap.containsKey( packet ), "Cannot get ID for packet %s in phase %s with direction %s", packet, protocolPhase, direction );
+            } catch ( IllegalArgumentException e )
+            {
+                System.out.println( "Packet Name: " + packet.getName() );
+                System.out.println( packet );
+            }
+
 
             return protocolData.packetMap.get( packet );
         }
