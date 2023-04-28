@@ -716,6 +716,11 @@ public enum Protocol
             {
                 throw new BadPacketException( "Unsupported protocol version" );
             }
+            if ( packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.Chat" ) || packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.SystemChat" ) )
+            {
+                System.out.println( "Packet Name: " + packet.getName() );
+                System.out.println( packet );
+            }
             Preconditions.checkArgument( protocolData.packetMap.containsKey( packet ), "Cannot get ID for packet %s in phase %s with direction %s", packet, protocolPhase, direction );
 
 
