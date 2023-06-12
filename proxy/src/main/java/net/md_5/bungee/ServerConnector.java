@@ -73,7 +73,7 @@ public class ServerConnector extends PacketHandler
     private enum State
     {
 
-        LOGIN_SUCCESS, ENCRYPT_RESPONSE, LOGIN, FINISHED;
+        LOGIN_SUCCESS, LOGIN, FINISHED;
     }
 
     @Override
@@ -84,13 +84,13 @@ public class ServerConnector extends PacketHandler
             return;
         }
 
-        String message = "Exception Connecting:" + Util.exception( t );
+        String message = ChatColor.RED + "Exception Connecting: " + Util.exception( t );
         if ( user.getServer() == null )
         {
             user.disconnect( message );
         } else
         {
-            user.sendMessage( ChatColor.RED + message );
+            user.sendMessage( message );
         }
     }
 
@@ -225,7 +225,8 @@ public class ServerConnector extends PacketHandler
 
             // Set tab list size, TODO: what shall we do about packet mutability
             Login modLogin = new Login( login.getEntityId(), login.isHardcore(), login.getGameMode(), login.getPreviousGameMode(), login.getWorldNames(), login.getDimensions(), login.getDimension(), login.getWorldName(), login.getSeed(), login.getDifficulty(),
-                    (byte) user.getPendingConnection().getListener().getTabListSize(), login.getLevelType(), login.getViewDistance(), login.getSimulationDistance(), login.isReducedDebugInfo(), login.isNormalRespawn(), login.isDebug(), login.isFlat(), login.getDeathLocation() );
+                    (byte) user.getPendingConnection().getListener().getTabListSize(), login.getLevelType(), login.getViewDistance(), login.getSimulationDistance(), login.isReducedDebugInfo(), login.isNormalRespawn(), login.isDebug(), login.isFlat(), login.getDeathLocation(),
+                    login.getPortalCooldown() );
 
             user.unsafe().sendPacket( modLogin );
 
@@ -243,7 +244,8 @@ public class ServerConnector extends PacketHandler
                 }
                 user.getSentBossBars().clear();
 
-                user.unsafe().sendPacket( new Respawn( login.getDimension(), login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(), false, login.getDeathLocation() ) );
+                user.unsafe().sendPacket( new Respawn( login.getDimension(), login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(), false, login.getDeathLocation(),
+                        login.getPortalCooldown() ) );
                 user.getServer().disconnect( "Quitting" );
             } else
             {
@@ -292,11 +294,13 @@ public class ServerConnector extends PacketHandler
             user.setDimensionChange( true );
             if ( login.getDimension() == user.getDimension() )
             {
-                user.unsafe().sendPacket( new Respawn( (Integer) login.getDimension() >= 0 ? -1 : 0, login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(), false, login.getDeathLocation() ) );
+                user.unsafe().sendPacket( new Respawn( (Integer) login.getDimension() >= 0 ? -1 : 0, login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(),
+                        false, login.getDeathLocation(), login.getPortalCooldown() ) );
             }
 
             user.setServerEntityId( login.getEntityId() );
-            user.unsafe().sendPacket( new Respawn( login.getDimension(), login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(), false, login.getDeathLocation() ) );
+            user.unsafe().sendPacket( new Respawn( login.getDimension(), login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(),
+                    false, login.getDeathLocation(), login.getPortalCooldown() ) );
             if ( user.getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_14 )
             {
                 user.unsafe().sendPacket( new ViewDistance( login.getViewDistance() ) );
