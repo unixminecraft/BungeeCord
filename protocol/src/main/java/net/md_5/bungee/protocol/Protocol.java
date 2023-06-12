@@ -716,7 +716,7 @@ public enum Protocol
             {
                 throw new BadPacketException( "Unsupported protocol version" );
             }
-            if ( packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.Chat" ) || packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.SystemChat" ) )
+            if ( packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.Chat" ) || packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.SystemChat" ) || packet.getClass().toString().contains( "net.md_5.bungee.protocol.packet.PlayerListItem" ) )
             {
                 System.out.println( "Packet Name: " + packet.getName() );
                 System.out.println( packet );
