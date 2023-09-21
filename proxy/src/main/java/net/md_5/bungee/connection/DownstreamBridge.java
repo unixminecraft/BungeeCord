@@ -20,10 +20,13 @@ import java.io.DataInput;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import net.md_5.bungee.ServerConnection;
 import net.md_5.bungee.ServerConnection.KeepAliveData;
+import net.md_5.bungee.ServerConnector;
 import net.md_5.bungee.UserConnection;
 import net.md_5.bungee.Util;
 import net.md_5.bungee.api.ProxyServer;
@@ -49,11 +52,13 @@ import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.PacketHandler;
 import net.md_5.bungee.protocol.DefinedPacket;
 import net.md_5.bungee.protocol.PacketWrapper;
+import net.md_5.bungee.protocol.Protocol;
 import net.md_5.bungee.protocol.ProtocolConstants;
 import net.md_5.bungee.protocol.packet.BossBar;
 import net.md_5.bungee.protocol.packet.Commands;
 import net.md_5.bungee.protocol.packet.KeepAlive;
 import net.md_5.bungee.protocol.packet.Kick;
+import net.md_5.bungee.protocol.packet.Login;
 import net.md_5.bungee.protocol.packet.PlayerListItem;
 import net.md_5.bungee.protocol.packet.PlayerListItemRemove;
 import net.md_5.bungee.protocol.packet.PlayerListItemUpdate;
@@ -81,6 +86,7 @@ public class DownstreamBridge extends PacketHandler
     private final ProxyServer bungee;
     private final UserConnection con;
     private final ServerConnection server;
+    private boolean receivedLogin;
 
     @Override
     public void exception(Throwable t) throws Exception
@@ -132,7 +138,7 @@ public class DownstreamBridge extends PacketHandler
     public void handle(PacketWrapper packet) throws Exception
     {
         EntityMap rewrite = con.getEntityRewrite();
-        if ( rewrite != null )
+        if ( rewrite != null && con.getCh().getEncodeProtocol() == Protocol.GAME )
         {
             rewrite.rewriteClientbound( packet.buf, con.getServerEntityId(), con.getClientEntityId(), con.getPendingConnection().getVersion() );
         }
@@ -650,6 +656,23 @@ public class DownstreamBridge extends PacketHandler
                     return input.getText();
                 }
             } );
+        } else
+        {
+            String last = con.getLastCommandTabbed();
+            if ( last != null )
+            {
+                String commandName = last.toLowerCase( Locale.ROOT );
+                commands.addAll( bungee.getPluginManager().getCommands().stream()
+                        .filter( (entry) ->
+                        {
+                            String lowerCase = entry.getKey().toLowerCase( Locale.ROOT );
+                            return lowerCase.startsWith( commandName ) && entry.getValue().hasPermission( con ) && !bungee.getDisabledCommands().contains( lowerCase );
+                        } )
+                        .map( (stringCommandEntry) -> '/' + stringCommandEntry.getKey() )
+                        .collect( Collectors.toList() ) );
+                commands.sort( null );
+                con.setLastCommandTabbed( null );
+            }
         }
 
         TabCompleteResponseEvent tabCompleteResponseEvent = new TabCompleteResponseEvent( server, con, new ArrayList<>( commands ) );
@@ -738,6 +761,17 @@ public class DownstreamBridge extends PacketHandler
         // serverData.setMotd( null );
         // serverData.setIcon( null );
         // con.unsafe().sendPacket( serverData );
+        throw CancelSendSignal.INSTANCE;
+    }
+
+    @Override
+    public void handle(Login login) throws Exception
+    {
+        Preconditions.checkState( !receivedLogin, "Not expecting login" );
+
+        receivedLogin = true;
+        ServerConnector.handleLogin( bungee, server.getCh(), con, server.getInfo(), null, server, login );
+
         throw CancelSendSignal.INSTANCE;
     }
 

@@ -72,6 +72,7 @@ public final class UserConnection implements ProxiedPlayer
     /*========================================================================*/
     @NonNull
     private final ProxyServer bungee;
+    @Getter
     @NonNull
     private final ChannelWrapper ch;
     @Getter
@@ -124,6 +125,9 @@ public final class UserConnection implements ProxiedPlayer
     private final Scoreboard serverSentScoreboard = new Scoreboard();
     @Getter
     private final Collection<UUID> sentBossBars = new HashSet<>();
+    @Getter
+    @Setter
+    private String lastCommandTabbed;
     /*========================================================================*/
     @Getter
     private String displayName;
