@@ -151,20 +151,11 @@ public final class UserConnection implements ProxiedPlayer
         }
     };
 
-    static DefaultTabListFactory tabListFactory = new DefaultTabListFactory();
-
-    public static void setTabListFactory(DefaultTabListFactory newTabListFactory)
-    {
-        tabListFactory = newTabListFactory;
-    }
-
     public void init()
     {
         this.entityRewrite = EntityMap.getEntityMap( getPendingConnection().getVersion() );
 
         this.displayName = name;
-
-        tabListHandler = tabListFactory.createTabList( this );
 
         Collection<String> g = bungee.getConfigurationAdapter().getGroups( name );
         g.addAll( bungee.getConfigurationAdapter().getGroups( getUniqueId().toString() ) );
