@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.event.ServerConnectEvent;
 import net.md_5.bungee.api.event.ServerConnectedEvent;
@@ -34,6 +35,7 @@ import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.HandlerBoss;
 import net.md_5.bungee.netty.PacketHandler;
 import net.md_5.bungee.protocol.DefinedPacket;
+import net.md_5.bungee.protocol.Either;
 import net.md_5.bungee.protocol.PacketWrapper;
 import net.md_5.bungee.protocol.Protocol;
 import net.md_5.bungee.protocol.ProtocolConstants;
@@ -43,7 +45,6 @@ import net.md_5.bungee.protocol.packet.GameState;
 import net.md_5.bungee.protocol.packet.Handshake;
 import net.md_5.bungee.protocol.packet.Kick;
 import net.md_5.bungee.protocol.packet.Login;
-import net.md_5.bungee.protocol.packet.LoginAcknowledged;
 import net.md_5.bungee.protocol.packet.LoginPayloadRequest;
 import net.md_5.bungee.protocol.packet.LoginPayloadResponse;
 import net.md_5.bungee.protocol.packet.LoginRequest;
@@ -279,7 +280,12 @@ public class ServerConnector extends PacketHandler
             Scoreboard serverScoreboard = user.getServerSentScoreboard();
             for ( Objective objective : serverScoreboard.getObjectives() )
             {
-                user.unsafe().sendPacket( new ScoreboardObjective( objective.getName(), objective.getValue(), ScoreboardObjective.HealthDisplay.fromString( objective.getType() ), (byte) 1 ) );
+                user.unsafe().sendPacket( new ScoreboardObjective(
+                        objective.getName(),
+                        ( user.getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_13 ) ? Either.right( ComponentSerializer.deserialize( objective.getValue() ) ) : Either.left( objective.getValue() ),
+                        ScoreboardObjective.HealthDisplay.fromString( objective.getType() ),
+                        (byte) 1 )
+                );
             }
             for ( Score score : serverScoreboard.getScores() )
             {
@@ -334,9 +340,9 @@ public class ServerConnector extends PacketHandler
                 user.unsafe().sendPacket( new StartConfiguration() );
             } else
             {
-                ch.setDecodeProtocol( Protocol.CONFIGURATION );
-                ch.write( new LoginAcknowledged() );
-                ch.setEncodeProtocol( Protocol.CONFIGURATION );
+                LoginResult loginProfile = user.getPendingConnection().getLoginProfile();
+                user.unsafe().sendPacket( new LoginSuccess( user.getUniqueId(), user.getName(), ( loginProfile == null ) ? null : loginProfile.getProperties() ) );
+                user.getCh().setEncodeProtocol( Protocol.CONFIGURATION );
             }
         }
 
@@ -384,7 +390,10 @@ public class ServerConnector extends PacketHandler
     public void handle(Kick kick) throws Exception
     {
         ServerInfo def = user.updateAndGetNextServer( target );
-        ServerKickEvent event = new ServerKickEvent( user, target, ComponentSerializer.parse( kick.getMessage() ), def, ServerKickEvent.State.CONNECTING );
+        ServerKickEvent event = new ServerKickEvent( user, target, new BaseComponent[]
+        {
+            kick.getMessage()
+        }, def, ServerKickEvent.State.CONNECTING );
         if ( event.getKickReason().toLowerCase( Locale.ROOT ).contains( "outdated" ) && def != null )
         {
             // Pre cancel the event if we are going to try another server

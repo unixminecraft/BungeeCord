@@ -1,6 +1,5 @@
 package net.md_5.bungee.connection;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
 import java.math.BigInteger;
@@ -39,7 +38,6 @@ import net.md_5.bungee.api.event.PostLoginEvent;
 import net.md_5.bungee.api.event.PreLoginEvent;
 import net.md_5.bungee.api.event.ProxyPingEvent;
 import net.md_5.bungee.api.event.ServerConnectEvent;
-import net.md_5.bungee.chat.ComponentSerializer;
 import net.md_5.bungee.http.HttpClient;
 import net.md_5.bungee.jni.cipher.BungeeCipher;
 import net.md_5.bungee.netty.ChannelWrapper;
@@ -59,7 +57,6 @@ import net.md_5.bungee.protocol.packet.Handshake;
 import net.md_5.bungee.protocol.packet.Kick;
 import net.md_5.bungee.protocol.packet.LegacyHandshake;
 import net.md_5.bungee.protocol.packet.LegacyPing;
-import net.md_5.bungee.protocol.packet.LoginAcknowledged;
 import net.md_5.bungee.protocol.packet.LoginPayloadResponse;
 import net.md_5.bungee.protocol.packet.LoginRequest;
 import net.md_5.bungee.protocol.packet.LoginSuccess;
@@ -123,12 +120,12 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     private enum State
     {
 
-        HANDSHAKE, STATUS, PING, USERNAME, ENCRYPT, FINISHING, CONFIGURING;
+        HANDSHAKE, STATUS, PING, USERNAME, ENCRYPT, FINISHING;
     }
 
     private boolean canSendKickMessage()
     {
-        return thisState == State.USERNAME || thisState == State.ENCRYPT || thisState == State.FINISHING || thisState == State.CONFIGURING;
+        return thisState == State.USERNAME || thisState == State.ENCRYPT || thisState == State.FINISHING;
     }
 
     @Override
@@ -435,8 +432,8 @@ public class InitialHandler extends PacketHandler implements PendingConnection
             {
                 if ( result.isCancelled() )
                 {
-                    BaseComponent[] reason = result.getCancelReasonComponents();
-                    disconnect( ( reason != null ) ? reason : TextComponent.fromLegacyText( bungee.getTranslation( "kick_message" ) ) );
+                    BaseComponent reason = result.getReason();
+                    disconnect( ( reason != null ) ? reason : TextComponent.fromLegacy( bungee.getTranslation( "kick_message" ) ) );
                     return;
                 }
                 if ( ch.isClosed() )
@@ -516,7 +513,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
 
     private void finish()
     {
-        offlineId = UUID.nameUUIDFromBytes( ( "OfflinePlayer:" + getName() ).getBytes( Charsets.UTF_8 ) );
+        offlineId = UUID.nameUUIDFromBytes( ( "OfflinePlayer:" + getName() ).getBytes( StandardCharsets.UTF_8 ) );
         if ( uniqueId == null )
         {
             uniqueId = offlineId;
@@ -579,8 +576,8 @@ public class InitialHandler extends PacketHandler implements PendingConnection
             {
                 if ( result.isCancelled() )
                 {
-                    BaseComponent[] reason = result.getCancelReasonComponents();
-                    disconnect( ( reason != null ) ? reason : TextComponent.fromLegacyText( bungee.getTranslation( "kick_message" ) ) );
+                    BaseComponent reason = result.getReason();
+                    disconnect( ( reason != null ) ? reason : TextComponent.fromLegacy( bungee.getTranslation( "kick_message" ) ) );
                     return;
                 }
                 if ( ch.isClosed() )
@@ -598,15 +595,12 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                             userCon = new UserConnection( bungee, ch, getName(), InitialHandler.this );
                             userCon.setCompressionThreshold( BungeeCord.getInstance().config.getCompressionThreshold() );
 
-                            unsafe.sendPacket( new LoginSuccess( getUniqueId(), getName(), ( loginProfile == null ) ? null : loginProfile.getProperties() ) );
-                            if ( getVersion() >= ProtocolConstants.MINECRAFT_1_20_2 )
+                            if ( getVersion() < ProtocolConstants.MINECRAFT_1_20_2 )
                             {
-                                thisState = State.CONFIGURING;
-                            } else
-                            {
+                                unsafe.sendPacket( new LoginSuccess( getUniqueId(), getName(), ( loginProfile == null ) ? null : loginProfile.getProperties() ) );
                                 ch.setProtocol( Protocol.GAME );
-                                finish2();
                             }
+                            finish2();
                         }
                     }
                 } );
@@ -617,18 +611,13 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         bungee.getPluginManager().callEvent( new LoginEvent( InitialHandler.this, complete ) );
     }
 
-    @Override
-    public void handle(LoginAcknowledged loginAcknowledged) throws Exception
-    {
-        Preconditions.checkState( thisState == State.CONFIGURING, "Not expecting CONFIGURING" );
-
-        finish2();
-        ch.setEncodeProtocol( Protocol.CONFIGURATION );
-    }
-
     private void finish2()
     {
-        userCon.init();
+        if ( !userCon.init() )
+        {
+            disconnect( bungee.getTranslation( "already_connected_proxy" ) );
+            return;
+        }
 
         ch.getHandle().pipeline().get( HandlerBoss.class ).setHandler( new UpstreamBridge( bungee, userCon ) );
         bungee.getPluginManager().callEvent( new PostLoginEvent( userCon ) );
@@ -659,7 +648,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     {
         if ( canSendKickMessage() )
         {
-            disconnect( TextComponent.fromLegacyText( reason ) );
+            disconnect( TextComponent.fromLegacy( reason ) );
         } else
         {
             ch.close();
@@ -669,22 +658,19 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     @Override
     public void disconnect(final BaseComponent... reason)
     {
-        if ( canSendKickMessage() )
-        {
-            ch.delayedClose( new Kick( ComponentSerializer.toString( reason ) ) );
-        } else
-        {
-            ch.close();
-        }
+        disconnect( TextComponent.fromArray( reason ) );
     }
 
     @Override
     public void disconnect(BaseComponent reason)
     {
-        disconnect( new BaseComponent[]
+        if ( canSendKickMessage() )
         {
-            reason
-        } );
+            ch.delayedClose( new Kick( reason ) );
+        } else
+        {
+            ch.close();
+        }
     }
 
     @Override
