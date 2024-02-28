@@ -64,7 +64,7 @@ import net.md_5.bungee.protocol.packet.SetCompression;
 import net.md_5.bungee.protocol.packet.StoreCookie;
 import net.md_5.bungee.protocol.packet.SystemChat;
 import net.md_5.bungee.protocol.packet.Transfer;
-import net.md_5.bungee.tab.ServerUnique;
+import net.md_5.bungee.tab.DefaultTabListFactory;
 import net.md_5.bungee.tab.TabList;
 import net.md_5.bungee.util.CaseInsensitiveSet;
 import net.md_5.bungee.util.ChatComponentTransformer;
@@ -156,13 +156,20 @@ public final class UserConnection implements ProxiedPlayer
         }
     };
 
+    static DefaultTabListFactory tabListFactory = new DefaultTabListFactory();
+
+    public static void setTabListFactory(DefaultTabListFactory newTabListFactory)
+    {
+        tabListFactory = newTabListFactory;
+    }
+
     public boolean init()
     {
         this.entityRewrite = EntityMap.getEntityMap( getPendingConnection().getVersion() );
 
         this.displayName = name;
 
-        tabListHandler = new ServerUnique( this );
+        tabListHandler = tabListFactory.createTabList( this );
 
         Collection<String> g = bungee.getConfigurationAdapter().getGroups( name );
         g.addAll( bungee.getConfigurationAdapter().getGroups( getUniqueId().toString() ) );
