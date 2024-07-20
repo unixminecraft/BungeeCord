@@ -126,6 +126,8 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     @Getter
     private UUID offlineId;
     @Getter
+    private UUID rewriteId;
+    @Getter
     private LoginResult loginProfile;
     @Getter
     private boolean legacy;
@@ -218,7 +220,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                     @Override
                     public void done(ProxyPingEvent result, Throwable error)
                     {
-                        if ( ch.isClosed() )
+                        if ( ch.isClosing() )
                         {
                             return;
                         }
@@ -361,6 +363,12 @@ public class InitialHandler extends PacketHandler implements PendingConnection
 
         bungee.getPluginManager().callEvent( new PlayerHandshakeEvent( InitialHandler.this, handshake ) );
 
+        // return if the connection was closed during the event
+        if ( ch.isClosing() )
+        {
+            return;
+        }
+
         switch ( handshake.getRequestedProtocol() )
         {
             case 1:
@@ -468,7 +476,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                     disconnect( ( reason != null ) ? reason : TextComponent.fromLegacy( bungee.getTranslation( "kick_message" ) ) );
                     return;
                 }
-                if ( ch.isClosed() )
+                if ( ch.isClosing() )
                 {
                     return;
                 }
@@ -550,6 +558,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         {
             uniqueId = offlineId;
         }
+        rewriteId = ( bungee.config.isIpForward() ) ? uniqueId : offlineId;
 
         if ( BungeeCord.getInstance().config.isEnforceSecureProfile() )
         {
@@ -612,7 +621,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                     disconnect( ( reason != null ) ? reason : TextComponent.fromLegacy( bungee.getTranslation( "kick_message" ) ) );
                     return;
                 }
-                if ( ch.isClosed() )
+                if ( ch.isClosing() )
                 {
                     return;
                 }
@@ -629,7 +638,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
 
                             if ( getVersion() < ProtocolConstants.MINECRAFT_1_20_2 )
                             {
-                                unsafe.sendPacket( new LoginSuccess( getUniqueId(), getName(), ( loginProfile == null ) ? null : loginProfile.getProperties() ) );
+                                unsafe.sendPacket( new LoginSuccess( getRewriteId(), getName(), ( loginProfile == null ) ? null : loginProfile.getProperties() ) );
                                 ch.setProtocol( Protocol.GAME );
                             }
                             finish2();
@@ -652,28 +661,37 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         }
 
         ch.getHandle().pipeline().get( HandlerBoss.class ).setHandler( new UpstreamBridge( bungee, userCon ) );
-        bungee.getPluginManager().callEvent( new PostLoginEvent( userCon ) );
 
-        // #3612: Don't progress further if disconnected during event
-        if ( ch.isClosed() )
-        {
-            return;
-        }
-
-        ServerInfo server;
+        ServerInfo initialServer;
         if ( bungee.getReconnectHandler() != null )
         {
-            server = bungee.getReconnectHandler().getServer( userCon );
+            initialServer = bungee.getReconnectHandler().getServer( userCon );
         } else
         {
-            server = AbstractReconnectHandler.getForcedHost( InitialHandler.this );
+            initialServer = AbstractReconnectHandler.getForcedHost( InitialHandler.this );
         }
-        if ( server == null )
+        if ( initialServer == null )
         {
-            server = bungee.getServerInfo( listener.getDefaultServer() );
+            initialServer = bungee.getServerInfo( listener.getDefaultServer() );
         }
 
-        userCon.connect( server, null, true, ServerConnectEvent.Reason.JOIN_PROXY );
+        Callback<PostLoginEvent> complete = new Callback<PostLoginEvent>()
+        {
+            @Override
+            public void done(PostLoginEvent result, Throwable error)
+            {
+                // #3612: Don't progress further if disconnected during event
+                if ( ch.isClosing() )
+                {
+                    return;
+                }
+
+                userCon.connect( result.getTarget(), null, true, ServerConnectEvent.Reason.JOIN_PROXY );
+            }
+        };
+
+        // fire post-login event
+        bungee.getPluginManager().callEvent( new PostLoginEvent( userCon, initialServer, complete ) );
     }
 
     @Override
