@@ -1,6 +1,9 @@
 package net.md_5.bungee.protocol.packet;
 
+import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -13,35 +16,34 @@ import net.md_5.bungee.protocol.ProtocolConstants;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
-public class EncryptionRequest extends DefinedPacket
+public class DisconnectReportDetails extends DefinedPacket
 {
 
-    private String serverId;
-    private byte[] publicKey;
-    private byte[] verifyToken;
-    private boolean shouldAuthenticate;
+    private Map<String, String> details;
 
     @Override
     public void read(ByteBuf buf, ProtocolConstants.Direction direction, int protocolVersion)
     {
-        serverId = readString( buf );
-        publicKey = readArray( buf );
-        verifyToken = readArray( buf );
-        if ( protocolVersion >= ProtocolConstants.MINECRAFT_1_20_5 )
+        int len = readVarInt( buf );
+        Preconditions.checkArgument( len <= 32, "Too many details" );
+
+        details = new HashMap<>();
+        for ( int i = 0; i < len; i++ )
         {
-            shouldAuthenticate = buf.readBoolean();
+            details.put( readString( buf, 128 ), readString( buf, 4096 ) );
         }
     }
 
     @Override
     public void write(ByteBuf buf, ProtocolConstants.Direction direction, int protocolVersion)
     {
-        writeString( serverId, buf );
-        writeArray( publicKey, buf );
-        writeArray( verifyToken, buf );
-        if ( protocolVersion >= ProtocolConstants.MINECRAFT_1_20_5 )
+        Preconditions.checkArgument( details.size() <= 32, "Too many details" );
+        writeVarInt( details.size(), buf );
+
+        for ( Map.Entry<String, String> detail : details.entrySet() )
         {
-            buf.writeBoolean( shouldAuthenticate );
+            writeString( detail.getKey(), buf, 128 );
+            writeString( detail.getValue(), buf, 4096 );
         }
     }
 
